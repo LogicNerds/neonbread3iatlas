@@ -175,7 +175,20 @@
             ctx.lineWidth = 3;
             ctx.strokeRect(x - width/2, y - height/2, width, height);
             
-            drawPixelText(text, x, y + 8, 10, '#fff');
+            // Support multi-line text (split by newline)
+            const lines = text.split('\n');
+            if (lines.length > 1) {
+                // Multi-line - center vertically
+                const lineHeight = 16;
+                const totalHeight = lines.length * lineHeight;
+                const startY = y - totalHeight / 2 + lineHeight / 2;
+                lines.forEach((line, index) => {
+                    drawPixelText(line, x, startY + index * lineHeight + 8, 14, '#fff');
+                });
+            } else {
+                // Single line
+                drawPixelText(text, x, y + 8, 14, '#fff');
+            }
         }
 
         function drawEarth(x, y, size) {
@@ -338,11 +351,11 @@
             
             // Earth button
             drawEarth(BASE_WIDTH/2 - 80, 280, 40);
-            drawButton('Play as Earth', BASE_WIDTH/2 - 80, 370, 140, 70, COLORS.earthBlue, '#00DDFF');
+            drawButton('Play as\nEarth', BASE_WIDTH/2 - 80, 370, 140, 70, COLORS.earthBlue, '#00DDFF');
             
             // Comet button
             drawComet(BASE_WIDTH/2 + 80, 280, 40);
-            drawButton('Play as 3i Atlas', BASE_WIDTH/2 + 80, 370, 140, 70, COLORS.cometPurple, '#BB00FF');
+            drawButton('Play as\n3i Atlas', BASE_WIDTH/2 + 80, 370, 140, 70, COLORS.cometPurple, '#BB00FF');
         }
 
         // Game over screen
@@ -608,8 +621,8 @@
                 }
                 opponentY = Math.max(100, Math.min(BASE_HEIGHT - 200, opponentY));
                 
-                // Fire laser
-                if (opponentAttackTimer % 90 === 0) {
+                // Fire laser (more frequently)
+                if (opponentAttackTimer % 60 === 0) {
                     opponentProjectiles.push({
                         type: 'laser',
                         x: BASE_WIDTH - 80,
@@ -619,8 +632,8 @@
                     });
                 }
                 
-                // Fire plasma blob
-                if (opponentAttackTimer % 150 === 0) {
+                // Fire plasma blob (more frequently)
+                if (opponentAttackTimer % 100 === 0) {
                     opponentProjectiles.push({
                         type: 'plasma',
                         x: BASE_WIDTH - 80,
@@ -637,8 +650,8 @@
                     // Slight movement would be here but Earth stays mostly stationary
                 }
                 
-                // Fire nuke
-                if (opponentAttackTimer % 120 === 0) {
+                // Fire nuke (more frequently)
+                if (opponentAttackTimer % 80 === 0) {
                     const startX = BASE_WIDTH - 80;
                     const startY = BASE_HEIGHT / 2;
                     const targetX = 80;
@@ -659,8 +672,8 @@
                     opponentProjectiles.push(nuke);
                 }
                 
-                // Launch flare
-                if (opponentAttackTimer % 100 === 0) {
+                // Launch flare (more frequently)
+                if (opponentAttackTimer % 70 === 0) {
                     const earthX = BASE_WIDTH - 80;
                     const earthY = BASE_HEIGHT / 2;
                     
@@ -739,6 +752,11 @@
                 
                 if (proj.gravity) {
                     proj.vy += proj.gravity;
+                }
+                
+                // Nukes also have gravity
+                if (proj.type === 'nuke') {
+                    proj.vy += 0.3; // Apply gravity to nukes
                 }
                 
                 // Nuke auto-detonate
