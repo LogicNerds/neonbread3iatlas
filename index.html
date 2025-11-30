@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>3i Atlas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Press Start 2P', monospace;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 100vw;
+            max-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background: #000;
+        }
+
+        @media (min-width: 768px) {
+            #gameContainer {
+                max-width: 375px;
+                max-height: 667px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Base dimensions
+        const BASE_WIDTH = 375;
+        const BASE_HEIGHT = 667;
+        let scale = 1;
+
+        // Game states
+        const STATE = {
+            TITLE: 'title',
+            FACTION_SELECT: 'faction_select',
+            PLAYING: 'playing',
+            GAME_OVER: 'game_over'
+        };
+
+        let gameState = STATE.TITLE;
+        let playerFaction = null; // 'earth' or 'comet'
+        let playerScore = 0;
+        let opponentScore = 0;
+        let gameTimer = 0;
+        const GAME_DURATION = 45 * 60; // 45 seconds at 60fps
+
+        // Sprite placeholders
+        const earthSprite = null; // PLACEHOLDER: Load Earth sprite here
+        const cometSprite = null; // PLACEHOLDER: Load 3i Atlas comet sprite here
+
+        // Player projectiles and effects
+        let playerProjectiles = [];
+        let opponentProjectiles = [];
+        let explosions = [];
+        let flares = [];
+
+        // Player state (Earth or Comet)
+        let playerY = BASE_HEIGHT / 2;
+        let playerCharging = false;
+        let playerChargeTime = 0;
+
+        // Opponent state
+        let opponentY = BASE_HEIGHT / 2;
+        let opponentDriftDir = 1;
+        let opponentAttackTimer = 0;
+        let opponentMoveTimer = 0;
+
+        // Nuke state
+        let nukeActive = false;
+        let nukeX = 0;
+        let nukeY = 0;
+        let nukeVX = 0;
+        let nukeVY = 0;
+
+        // Touch tracking
+        let touchStartY = 0;
+        let touchStartTime = 0;
+        let activeTouch = null;
+
+        // Colors
+        const COLORS = {
+            earthBlue: '#00BFFF',
+            cometPurple: '#9D00FF',
+            laserRed: '#FF0066',
+            nukeOrange: '#FF6600',
+            plasmaGreen: '#00FF88',
+            flareYellow: '#FFFF00',
+            bg: '#0a0015',
+            stars: '#ffffff'
+        };
+
+        // Resize handler
+        function resize() {
+            const container = document.getElementById('gameContainer');
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            const scaleX = containerWidth / BASE_WIDTH;
+            const scaleY = containerHeight / BASE_HEIGHT;
+            scale = Math.min(scaleX, scaleY);
+            
+            canvas.width = BASE_WIDTH * scale;
+            canvas.height = BASE_HEIGHT * scale;
+            
+            ctx.imageSmoothingEnabled = false;
+            ctx.scale(scale, scale);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Drawing functions
+        function drawStarfield() {
+            ctx.fillStyle = COLORS.bg;
+            ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+            
+            // Simple stars
+            ctx.fillStyle = COLORS.stars;
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 73) % BASE_WIDTH;
+                const y = (i * 97) % BASE_HEIGHT;
+                const size = (i % 3) + 1;
+                ctx.fillRect(x, y, size, size);
+            }
+        }
+
+        function drawPixelText(text, x, y, size, color) {
+            ctx.fillStyle = color;
+            ctx.font = `${size}px 'Press Start 2P'`;
+            ctx.textAlign = 'center';
+            ctx.fillText(text, x, y);
+        }
+
+        function drawButton(text, x, y, width, height, color, hoverColor) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x - width/2, y - height/2, width, height);
+            ctx.strokeStyle = hoverColor;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x - width/2, y - height/2, width, height);
+            
+            drawPixelText(text, x, y + 8, 14, '#fff');
+        }
+
+        function drawEarth(x, y, size) {
+            // PLACEHOLDER: Replace with sprite rendering
+            // if (earthSprite) { ctx.drawImage(earthSprite, x - size, y - size, size * 2, size * 2); return; }
+            
+            // Fallback rendering
+            ctx.fillStyle = COLORS.earthBlue;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Glow
+            ctx.strokeStyle = COLORS.earthBlue;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Simple land masses
+            ctx.fillStyle = '#00AA00';
+            ctx.fillRect(x - size/2, y - size/3, size/2, size/3);
+            ctx.fillRect(x, y, size/3, size/2);
+        }
+
+        function drawComet(x, y, size) {
+            // PLACEHOLDER: Replace with sprite rendering
+            // if (cometSprite) { ctx.drawImage(cometSprite, x - size, y - size, size * 2, size * 2); return; }
+            
+            // Fallback rendering
+            ctx.fillStyle = COLORS.cometPurple;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Glow
+            ctx.strokeStyle = COLORS.cometPurple;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Tail particles
+            for (let i = 0; i < 5; i++) {
+                const tailX = x - (i + 1) * 8;
+                const tailY = y + (Math.sin(gameTimer * 0.05 + i) * 4);
+                const tailSize = size * (1 - i * 0.15);
+                ctx.globalAlpha = 0.6 - i * 0.1;
+                ctx.fillStyle = COLORS.cometPurple;
+                ctx.fillRect(tailX - tailSize/2, tailY - tailSize/2, tailSize, tailSize);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawProjectile(proj) {
+            if (proj.type === 'nuke') {
+                ctx.fillStyle = COLORS.nukeOrange;
+                ctx.fillRect(proj.x - 6, proj.y - 6, 12, 12);
+                ctx.strokeStyle = '#FF9933';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(proj.x - 6, proj.y - 6, 12, 12);
+            } else if (proj.type === 'laser') {
+                ctx.fillStyle = COLORS.laserRed;
+                ctx.fillRect(proj.x - 10, proj.y - 3, 20, 6);
+                ctx.fillStyle = '#FF3388';
+                ctx.fillRect(proj.x - 8, proj.y - 2, 16, 4);
+            } else if (proj.type === 'plasma') {
+                ctx.fillStyle = COLORS.plasmaGreen;
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#00FFAA';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function drawExplosion(exp) {
+            const progress = exp.timer / exp.maxTimer;
+            const radius = exp.radius * (1 + progress * 0.5);
+            
+            ctx.globalAlpha = 1 - progress;
+            ctx.fillStyle = exp.color;
+            ctx.beginPath();
+            ctx.arc(exp.x, exp.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawFlare(flare) {
+            const progress = flare.timer / flare.maxTimer;
+            const radius = 40;
+            
+            ctx.globalAlpha = 0.3 * (1 - progress);
+            ctx.fillStyle = COLORS.flareYellow;
+            ctx.beginPath();
+            ctx.arc(flare.x, flare.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawHUD() {
+            // Timer (center top)
+            const timeLeft = Math.max(0, Math.ceil((GAME_DURATION - gameTimer) / 60));
+            drawPixelText(`${timeLeft}s`, BASE_WIDTH / 2, 30, 12, '#fff');
+            
+            // Player Score (left)
+            const scoreY = 60;
+            drawPixelText('YOU', 40, scoreY, 10, '#fff');
+            drawPixelText(`${playerScore}`, 40, scoreY + 20, 12, playerFaction === 'earth' ? COLORS.earthBlue : COLORS.cometPurple);
+            
+            // Opponent Score (right)
+            drawPixelText('ENEMY', BASE_WIDTH - 50, scoreY, 10, '#fff');
+            drawPixelText(`${opponentScore}`, BASE_WIDTH - 50, scoreY + 20, 12, playerFaction === 'earth' ? COLORS.cometPurple : COLORS.earthBlue);
+        }
+
+        function drawControls() {
+            const controlY = BASE_HEIGHT - 90;
+            
+            if (playerFaction === 'earth') {
+                // Nuke button (left)
+                const nukeText = nukeActive ? 'DETONATE' : 'NUKE';
+                drawButton(nukeText, 80, controlY, 130, 60, COLORS.nukeOrange, '#FF9933');
+                
+                // Flare button (right)
+                drawButton('FLARE', BASE_WIDTH - 80, controlY, 130, 60, COLORS.flareYellow, '#FFFF88');
+            } else {
+                // Laser button (left)
+                drawButton('LASER', 80, controlY, 130, 60, COLORS.laserRed, '#FF3388');
+                
+                // Plasma button (right) - shows charge
+                const plasmaColor = playerCharging ? '#00FFAA' : COLORS.plasmaGreen;
+                drawButton('PLASMA', BASE_WIDTH - 80, controlY, 130, 60, plasmaColor, '#00FFAA');
+                
+                // Swipe instructions
+                drawPixelText('SWIPE TO MOVE', BASE_WIDTH/2, controlY - 40, 8, '#888');
+            }
+        }
+
+        // Title screen
+        function drawTitleScreen() {
+            drawStarfield();
+            
+            drawPixelText('3i Atlas', BASE_WIDTH/2, 150, 24, COLORS.cometPurple);
+            
+            // Draw small earth and comet
+            drawEarth(BASE_WIDTH/2 - 60, 250, 30);
+            drawComet(BASE_WIDTH/2 + 60, 250, 30);
+            
+            drawButton('Launch Your Attack', BASE_WIDTH/2, 400, 280, 70, COLORS.laserRed, '#FF3388');
+            
+            drawPixelText('Neon Bread Studios © 2025', BASE_WIDTH/2, BASE_HEIGHT - 30, 12, '#666');
+        }
+
+        // Faction selection screen
+        function drawFactionSelect() {
+            drawStarfield();
+            
+            drawPixelText('Choose Your Side', BASE_WIDTH/2, 120, 16, '#fff');
+            
+            // Earth button
+            drawEarth(BASE_WIDTH/2 - 80, 280, 40);
+            drawButton('Play as Earth', BASE_WIDTH/2 - 80, 370, 140, 70, COLORS.earthBlue, '#00DDFF');
+            
+            // Comet button
+            drawComet(BASE_WIDTH/2 + 80, 280, 40);
+            drawButton('Play as 3i Atlas', BASE_WIDTH/2 + 80, 370, 140, 70, COLORS.cometPurple, '#BB00FF');
+        }
+
+        // Game over screen
+        function drawGameOver() {
+            drawStarfield();
+            
+            // Determine winner by score
+            let victory = false;
+            let message = '';
+            
+            if (playerScore > opponentScore) {
+                victory = true;
+                message = 'VICTORY!';
+            } else if (opponentScore > playerScore) {
+                victory = false;
+                message = 'DEFEAT!';
+            } else {
+                message = 'DRAW!';
+            }
+            
+            const color = victory ? '#00FF00' : (message === 'DRAW!' ? '#FFFF00' : '#FF0000');
+            
+            drawPixelText(message, BASE_WIDTH/2, 150, 24, color);
+            
+            // Show final scores
+            drawPixelText(`Your Score: ${playerScore}`, BASE_WIDTH/2, 220, 12, '#fff');
+            drawPixelText(`Enemy Score: ${opponentScore}`, BASE_WIDTH/2, 250, 12, '#fff');
+            
+            drawButton('Play Again', BASE_WIDTH/2, 350, 240, 60, COLORS.laserRed, '#FF3388');
+            
+            // Play More Games link
+            drawPixelText('Play More Games!', BASE_WIDTH/2, 480, 10, '#00DDFF');
+        }
+
+        // Gameplay
+        function startGame(faction) {
+            playerFaction = faction;
+            gameState = STATE.PLAYING;
+            playerScore = 0;
+            opponentScore = 0;
+            gameTimer = 0;
+            playerProjectiles = [];
+            opponentProjectiles = [];
+            explosions = [];
+            flares = [];
+            nukeActive = false;
+            playerCharging = false;
+            playerChargeTime = 0;
+            
+            // Position player and opponent
+            if (faction === 'earth') {
+                playerY = BASE_HEIGHT / 2;
+                opponentY = BASE_HEIGHT / 2;
+            } else {
+                playerY = BASE_HEIGHT / 2;
+                opponentY = BASE_HEIGHT / 2;
+            }
+        }
+
+        function fireNuke() {
+            if (nukeActive) return;
+            
+            nukeActive = true;
+            const startX = 80;
+            const startY = BASE_HEIGHT / 2;
+            const targetX = BASE_WIDTH - 80;
+            const targetY = opponentY;
+            
+            nukeX = startX;
+            nukeY = startY;
+            
+            // Calculate arc trajectory toward opponent
+            const dx = targetX - startX;
+            const dy = targetY - startY;
+            
+            nukeVX = dx / 50; // Horizontal speed to reach target
+            nukeVY = -6; // Initial upward velocity for arc
+        }
+
+        function detonateNuke() {
+            if (!nukeActive) return;
+            
+            createExplosion(nukeX, nukeY, 50, COLORS.nukeOrange);
+            checkNukeDamage(nukeX, nukeY);
+            nukeActive = false;
+        }
+
+        function fireLaser() {
+            playerProjectiles.push({
+                type: 'laser',
+                x: 80,
+                y: playerY,
+                vx: 8,
+                vy: 0
+            });
+        }
+
+        function fireFlare() {
+            // Create multiple flare zones in an arc to the right of Earth
+            const earthX = 80;
+            const earthY = BASE_HEIGHT / 2;
+            
+            for (let i = 0; i < 3; i++) {
+                const angle = (Math.PI / 6) * (i - 1); // -30, 0, +30 degrees
+                const distance = 60;
+                flares.push({
+                    x: earthX + Math.cos(angle) * distance,
+                    y: earthY + Math.sin(angle) * distance,
+                    timer: 0,
+                    maxTimer: 90
+                });
+            }
+        }
+
+        function startPlasmaCharge() {
+            playerCharging = true;
+            playerChargeTime = 0;
+        }
+
+        function releasePlasma() {
+            if (!playerCharging) return;
+            
+            const chargeRatio = Math.min(playerChargeTime / 30, 1);
+            const power = 4 + chargeRatio * 4;
+            
+            playerProjectiles.push({
+                type: 'plasma',
+                x: 80,
+                y: playerY,
+                vx: power,
+                vy: -3 - chargeRatio * 2,
+                gravity: 0.15
+            });
+            
+            playerCharging = false;
+            playerChargeTime = 0;
+        }
+
+        function createExplosion(x, y, radius, color) {
+            explosions.push({
+                x, y, radius, color,
+                timer: 0,
+                maxTimer: 20
+            });
+            
+            // Screen shake
+            canvas.style.transform = `translate(${Math.random() * 4 - 2}px, ${Math.random() * 4 - 2}px)`;
+            setTimeout(() => canvas.style.transform = '', 100);
+        }
+
+        function checkNukeDamage(x, y) {
+            const opX = BASE_WIDTH - 80;
+            const opY = playerFaction === 'earth' ? opponentY : BASE_HEIGHT / 2;
+            const dist = Math.sqrt((x - opX) ** 2 + (y - opY) ** 2);
+            
+            // Check if in flare protection
+            let inFlare = false;
+            for (let flare of flares) {
+                const flareDist = Math.sqrt((x - flare.x) ** 2 + (y - flare.y) ** 2);
+                if (flareDist < 40) {
+                    inFlare = true;
+                    break;
+                }
+            }
+            
+            let points = 0;
+            if (dist < 30) {
+                points = 10; // Direct hit
+            } else if (dist < 50) {
+                points = 5; // Indirect blast
+            }
+            
+            // Flare reduces points by 2
+            if (inFlare && points > 0) {
+                points = Math.max(0, points - 2);
+            }
+            
+            playerScore += points;
+        }
+
+        function checkOpponentNukeDamage(x, y) {
+            const playerX = 80;
+            const targetY = playerFaction === 'earth' ? BASE_HEIGHT / 2 : playerY;
+            const dist = Math.sqrt((x - playerX) ** 2 + (y - targetY) ** 2);
+            
+            // Check if in flare protection
+            let inFlare = false;
+            for (let flare of flares) {
+                const flareDist = Math.sqrt((x - flare.x) ** 2 + (y - flare.y) ** 2);
+                if (flareDist < 40) {
+                    inFlare = true;
+                    break;
+                }
+            }
+            
+            let points = 0;
+            if (dist < 30) {
+                points = 10; // Direct hit
+            } else if (dist < 50) {
+                points = 5; // Indirect blast
+            }
+            
+            // Flare reduces points by 2
+            if (inFlare && points > 0) {
+                points = Math.max(0, points - 2);
+            }
+            
+            opponentScore += points;
+        }
+
+        function checkProjectileHit(proj, targetX, targetY) {
+            const dist = Math.sqrt((proj.x - targetX) ** 2 + (proj.y - targetY) ** 2);
+            
+            // Check if projectile is in flare protection zone
+            let inFlare = false;
+            for (let flare of flares) {
+                const flareDist = Math.sqrt((proj.x - flare.x) ** 2 + (proj.y - flare.y) ** 2);
+                if (flareDist < 40) {
+                    inFlare = true;
+                    break;
+                }
+            }
+            
+            if (proj.type === 'laser') {
+                if (dist < 25) {
+                    createExplosion(proj.x, proj.y, 20, COLORS.laserRed);
+                    let points = 3; // Laser hit
+                    if (inFlare) {
+                        points = Math.max(0, points - 2); // Flare reduces by 2
+                    }
+                    opponentScore += points;
+                    return true;
+                }
+            } else if (proj.type === 'plasma') {
+                if (dist < 30) {
+                    createExplosion(proj.x, proj.y, 35, COLORS.plasmaGreen);
+                    let points = 15; // Plasma hit
+                    if (inFlare) {
+                        points = Math.max(0, points - 2); // Flare reduces by 2
+                    }
+                    playerScore += points;
+                    return true;
+                }
+            } else if (proj.type === 'nuke') {
+                // Handled separately
+            }
+            
+            return false;
+        }
+
+        // AI behavior
+        function updateOpponentAI() {
+            opponentAttackTimer++;
+            opponentMoveTimer++;
+            
+            if (playerFaction === 'earth') {
+                // Opponent is comet - fires lasers and plasma
+                // Drift up/down
+                if (opponentMoveTimer % 120 < 60) {
+                    opponentY += 0.5;
+                } else {
+                    opponentY -= 0.5;
+                }
+                opponentY = Math.max(100, Math.min(BASE_HEIGHT - 200, opponentY));
+                
+                // Fire laser
+                if (opponentAttackTimer % 90 === 0) {
+                    opponentProjectiles.push({
+                        type: 'laser',
+                        x: BASE_WIDTH - 80,
+                        y: opponentY,
+                        vx: -8,
+                        vy: 0
+                    });
+                }
+                
+                // Fire plasma blob
+                if (opponentAttackTimer % 150 === 0) {
+                    opponentProjectiles.push({
+                        type: 'plasma',
+                        x: BASE_WIDTH - 80,
+                        y: opponentY,
+                        vx: -5,
+                        vy: -4,
+                        gravity: 0.15
+                    });
+                }
+            } else {
+                // Opponent is earth - fires nukes and flares
+                // Slow drift left/right
+                if (opponentMoveTimer % 180 < 90) {
+                    // Slight movement would be here but Earth stays mostly stationary
+                }
+                
+                // Fire nuke
+                if (opponentAttackTimer % 120 === 0) {
+                    const startX = BASE_WIDTH - 80;
+                    const startY = BASE_HEIGHT / 2;
+                    const targetX = 80;
+                    const targetY = playerFaction === 'comet' ? playerY : BASE_HEIGHT / 2;
+                    
+                    // Calculate trajectory to reach target
+                    const distance = Math.abs(targetX - startX);
+                    const heightDiff = targetY - startY;
+                    
+                    const nuke = {
+                        type: 'nuke',
+                        x: startX,
+                        y: startY,
+                        vx: -5.5,  // Negative to go left
+                        vy: -5 - (heightDiff / 80), // Arc upward, adjust for height difference
+                        detonateTimer: 65
+                    };
+                    opponentProjectiles.push(nuke);
+                }
+                
+                // Launch flare
+                if (opponentAttackTimer % 100 === 0) {
+                    const earthX = BASE_WIDTH - 80;
+                    const earthY = BASE_HEIGHT / 2;
+                    
+                    for (let i = 0; i < 3; i++) {
+                        const angle = Math.PI + (Math.PI / 6) * (i - 1); // Mirror for right side
+                        const distance = 60;
+                        flares.push({
+                            x: earthX + Math.cos(angle) * distance,
+                            y: earthY + Math.sin(angle) * distance,
+                            timer: 0,
+                            maxTimer: 90
+                        });
+                    }
+                }
+            }
+        }
+
+        function updateGame() {
+            gameTimer++;
+            
+            // Check if time expired - winner is whoever dealt more damage
+            if (gameTimer >= GAME_DURATION) {
+                gameState = STATE.GAME_OVER;
+                return;
+            }
+            
+            // Update opponent AI
+            updateOpponentAI();
+            
+            // Update nuke if active
+            if (nukeActive) {
+                nukeX += nukeVX;
+                nukeY += nukeVY;
+                nukeVY += 0.3; // gravity
+                
+                // Auto-detonate if off screen
+                if (nukeX > BASE_WIDTH || nukeY > BASE_HEIGHT) {
+                    detonateNuke();
+                }
+            }
+            
+            // Update player charging
+            if (playerCharging) {
+                playerChargeTime++;
+            }
+            
+            // Update player projectiles
+            for (let i = playerProjectiles.length - 1; i >= 0; i--) {
+                const proj = playerProjectiles[i];
+                proj.x += proj.vx;
+                proj.y += proj.vy;
+                
+                if (proj.gravity) {
+                    proj.vy += proj.gravity;
+                }
+                
+                // Check hit on opponent
+                const opX = BASE_WIDTH - 80;
+                const opY = opponentY;
+                if (checkProjectileHit(proj, opX, opY)) {
+                    playerProjectiles.splice(i, 1);
+                    continue;
+                }
+                
+                // Remove if off screen
+                if (proj.x > BASE_WIDTH || proj.y > BASE_HEIGHT || proj.x < 0 || proj.y < 0) {
+                    playerProjectiles.splice(i, 1);
+                }
+            }
+            
+            // Update opponent projectiles
+            for (let i = opponentProjectiles.length - 1; i >= 0; i--) {
+                const proj = opponentProjectiles[i];
+                proj.x += proj.vx;
+                proj.y += proj.vy;
+                
+                if (proj.gravity) {
+                    proj.vy += proj.gravity;
+                }
+                
+                // Nuke auto-detonate
+                if (proj.type === 'nuke') {
+                    proj.detonateTimer--;
+                    if (proj.detonateTimer <= 0) {
+                        createExplosion(proj.x, proj.y, 50, COLORS.nukeOrange);
+                        checkOpponentNukeDamage(proj.x, proj.y);
+                        opponentProjectiles.splice(i, 1);
+                        continue;
+                    }
+                }
+                
+                // Check hit on player
+                const playerX = 80;
+                const targetY = playerFaction === 'earth' ? BASE_HEIGHT / 2 : playerY;
+                if (checkProjectileHit(proj, playerX, targetY)) {
+                    opponentProjectiles.splice(i, 1);
+                    continue;
+                }
+                
+                // Remove if off screen
+                if (proj.x < 0 || proj.y > BASE_HEIGHT || proj.x > BASE_WIDTH || proj.y < 0) {
+                    opponentProjectiles.splice(i, 1);
+                }
+            }
+            
+            // Update explosions
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                explosions[i].timer++;
+                if (explosions[i].timer >= explosions[i].maxTimer) {
+                    explosions.splice(i, 1);
+                }
+            }
+            
+            // Update flares
+            for (let i = flares.length - 1; i >= 0; i--) {
+                flares[i].timer++;
+                if (flares[i].timer >= flares[i].maxTimer) {
+                    flares.splice(i, 1);
+                }
+            }
+            
+            // Game ends only when timer expires (no HP checks)
+        }
+
+        function drawGame() {
+            drawStarfield();
+            
+            // Draw flares first (background)
+            flares.forEach(drawFlare);
+            
+            // Draw player
+            const playerX = 80;
+            if (playerFaction === 'earth') {
+                drawEarth(playerX, BASE_HEIGHT / 2, 35);
+            } else {
+                drawComet(playerX, playerY, 35);
+            }
+            
+            // Draw opponent
+            const opponentX = BASE_WIDTH - 80;
+            if (playerFaction === 'earth') {
+                drawComet(opponentX, opponentY, 35);
+            } else {
+                drawEarth(opponentX, BASE_HEIGHT / 2, 35); // Earth is always at center
+            }
+            
+            // Draw nuke if active
+            if (nukeActive) {
+                ctx.fillStyle = COLORS.nukeOrange;
+                ctx.fillRect(nukeX - 6, nukeY - 6, 12, 12);
+                ctx.strokeStyle = '#FF9933';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(nukeX - 6, nukeY - 6, 12, 12);
+            }
+            
+            // Draw projectiles
+            playerProjectiles.forEach(drawProjectile);
+            opponentProjectiles.forEach(drawProjectile);
+            
+            // Draw explosions
+            explosions.forEach(drawExplosion);
+            
+            // Draw HUD and controls
+            drawHUD();
+            drawControls();
+        }
+
+        // Main render loop
+        function render() {
+            ctx.clearRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+            
+            if (gameState === STATE.TITLE) {
+                drawTitleScreen();
+            } else if (gameState === STATE.FACTION_SELECT) {
+                drawFactionSelect();
+            } else if (gameState === STATE.PLAYING) {
+                updateGame();
+                drawGame();
+            } else if (gameState === STATE.GAME_OVER) {
+                drawGameOver();
+            }
+            
+            requestAnimationFrame(render);
+        }
+
+        // Touch/click handlers
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mouseup', handleMouseUp);
+
+        function getTouchPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0] || e.changedTouches[0];
+            return {
+                x: (touch.clientX - rect.left) / scale,
+                y: (touch.clientY - rect.top) / scale
+            };
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX - rect.left) / scale,
+                y: (e.clientY - rect.top) / scale
+            };
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const pos = getTouchPos(e);
+            handleInput(pos, 'start');
+            touchStartY = pos.y;
+            touchStartTime = Date.now();
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (playerFaction === 'comet' && gameState === STATE.PLAYING) {
+                const pos = getTouchPos(e);
+                const deltaY = pos.y - touchStartY;
+                
+                // Swipe movement
+                if (Math.abs(deltaY) > 20) {
+                    playerY += deltaY * 0.3;
+                    playerY = Math.max(100, Math.min(BASE_HEIGHT - 200, playerY));
+                    touchStartY = pos.y;
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            const pos = getTouchPos(e);
+            handleInput(pos, 'end');
+        }
+
+        function handleMouseDown(e) {
+            const pos = getMousePos(e);
+            handleInput(pos, 'start');
+        }
+
+        function handleMouseUp(e) {
+            const pos = getMousePos(e);
+            handleInput(pos, 'end');
+        }
+
+        function handleInput(pos, phase) {
+            const controlY = BASE_HEIGHT - 90;
+            
+            if (gameState === STATE.TITLE) {
+                // Launch button
+                if (pos.y > 365 && pos.y < 435 && pos.x > 47.5 && pos.x < 327.5 && phase === 'start') {
+                    gameState = STATE.FACTION_SELECT;
+                }
+            } else if (gameState === STATE.FACTION_SELECT) {
+                // Earth button (left)
+                if (pos.y > 335 && pos.y < 405 && pos.x > 10 && pos.x < 150 && phase === 'start') {
+                    startGame('earth');
+                }
+                // Comet button (right)
+                if (pos.y > 335 && pos.y < 405 && pos.x > 225 && pos.x < 375 && phase === 'start') {
+                    startGame('comet');
+                }
+            } else if (gameState === STATE.PLAYING) {
+                if (playerFaction === 'earth') {
+                    // Nuke button (left)
+                    if (pos.x < 145 && pos.y > controlY - 30 && pos.y < controlY + 30) {
+                        if (phase === 'start') {
+                            if (nukeActive) {
+                                detonateNuke();
+                            } else {
+                                fireNuke();
+                            }
+                        }
+                    }
+                    // Flare button (right)
+                    if (pos.x > 230 && pos.y > controlY - 30 && pos.y < controlY + 30) {
+                        if (phase === 'start') {
+                            fireFlare();
+                        }
+                    }
+                } else {
+                    // Laser button (left)
+                    if (pos.x < 145 && pos.y > controlY - 30 && pos.y < controlY + 30) {
+                        if (phase === 'start') {
+                            fireLaser();
+                        }
+                    }
+                    // Plasma button (right) - long press
+                    if (pos.x > 230 && pos.y > controlY - 30 && pos.y < controlY + 30) {
+                        if (phase === 'start') {
+                            startPlasmaCharge();
+                        } else if (phase === 'end') {
+                            releasePlasma();
+                        }
+                    }
+                }
+            } else if (gameState === STATE.GAME_OVER) {
+                // Play again button
+                if (pos.y > 320 && pos.y < 380 && pos.x > 67.5 && pos.x < 307.5 && phase === 'start') {
+                    gameState = STATE.TITLE;
+                }
+                // Play More Games link
+                if (pos.y > 465 && pos.y < 495 && phase === 'start') {
+                    window.location.href = 'https://www.neon-bread.com';
+                }
+            }
+        }
+
+        // Start the game loop
+        render();
+    </script>
+</body>
+</html>
