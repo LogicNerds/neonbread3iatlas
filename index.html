@@ -95,6 +95,21 @@
         // Background music - will be created on first interaction
         let bgMusic = null;
 
+        // Function called directly by Launch Your Attack button
+        function launchGame() {
+            // Create and play background music immediately on user click
+            bgMusic = new Audio('https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/joogs-hyperspace-416314.mp3');
+            bgMusic.loop = true;
+            bgMusic.volume = 0.4;
+            bgMusic.play().catch(e => console.log('Audio play failed:', e));
+            
+            // Initialize audio context for sound effects
+            initAudio();
+            
+            // Move to faction select
+            gameState = STATE.FACTION_SELECT;
+        }
+
         // Player projectiles and effects
         let playerProjectiles = [];
         let opponentProjectiles = [];
@@ -1213,22 +1228,9 @@
             const controlY = BASE_HEIGHT - 90;
             
             if (gameState === STATE.TITLE) {
-                // Launch button - starts/restarts music immediately
+                // Launch button - calls launchGame function
                 if (pos.y > 365 && pos.y < 435 && pos.x > 47.5 && pos.x < 327.5 && phase === 'start') {
-                    // Initialize audio context first
-                    initAudio();
-                    
-                    // Create bgMusic on first click if it doesn't exist
-                    if (!bgMusic) {
-                        bgMusic = new Audio('https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/joogs-hyperspace-416314.mp3');
-                        bgMusic.loop = true;
-                        bgMusic.volume = 0.4;
-                    }
-                    
-                    // Always restart background music from beginning
-                    bgMusic.currentTime = 0;
-                    bgMusic.play().catch(e => console.log('Audio play failed:', e));
-                    gameState = STATE.FACTION_SELECT;
+                    launchGame();
                 }
             } else if (gameState === STATE.FACTION_SELECT) {
                 // Earth button (left)
@@ -1272,6 +1274,11 @@
             } else if (gameState === STATE.GAME_OVER) {
                 // Play again button
                 if (pos.y > 320 && pos.y < 380 && pos.x > 67.5 && pos.x < 307.5 && phase === 'start') {
+                    // Stop music for restart
+                    if (bgMusic) {
+                        bgMusic.pause();
+                        bgMusic.currentTime = 0;
+                    }
                     gameState = STATE.TITLE;
                 }
                 // Play More Games link
