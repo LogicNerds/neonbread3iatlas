@@ -112,18 +112,18 @@
         const gameLogo = new Image();
         gameLogo.src = 'https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/3iatlaslogo.png';
 
-        // Background music - will be created on first interaction
-        let bgMusic = null;
+        // Background music - create at load but don't play yet
+        const bgMusic = new Audio('https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/joogs-hyperspace-416314.mp3');
+        bgMusic.loop = true;
+        bgMusic.volume = 0.4;
 
         // Function called directly by Launch Your Attack button
         function launchGame() {
             // Hide the invisible button overlay
             document.getElementById('launchButton').classList.add('hidden');
             
-            // Create and play background music immediately on user click
-            bgMusic = new Audio('https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/joogs-hyperspace-416314.mp3');
-            bgMusic.loop = true;
-            bgMusic.volume = 0.4;
+            // Play background music (Audio object already exists)
+            bgMusic.currentTime = 0;
             bgMusic.play().catch(e => console.log('Audio play failed:', e));
             
             // Initialize audio context for sound effects
