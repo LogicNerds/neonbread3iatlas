@@ -81,9 +81,17 @@
         let gameTimer = 0;
         const GAME_DURATION = 45 * 60; // 45 seconds at 60fps
 
-        // Sprite placeholders
-        const earthSprite = null; // PLACEHOLDER: Load Earth sprite here
-        const cometSprite = null; // PLACEHOLDER: Load 3i Atlas comet sprite here
+        // Sprite placeholders - Load from GitHub
+        const earthSprite = new Image();
+        earthSprite.src = 'https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/earth.png';
+        
+        const cometSprite = new Image();
+        cometSprite.src = 'https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/3iatlas.png';
+
+        // Background music
+        const bgMusic = new Audio('https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/joogs-hyperspace-416314.mp3');
+        bgMusic.loop = true;
+        bgMusic.volume = 0.4; // Set to reasonable volume
 
         // Player projectiles and effects
         let playerProjectiles = [];
@@ -317,8 +325,12 @@
         }
 
         function drawEarth(x, y, size) {
-            // PLACEHOLDER: Replace with sprite rendering
-            // if (earthSprite) { ctx.drawImage(earthSprite, x - size, y - size, size * 2, size * 2); return; }
+            // Use sprite if loaded
+            if (earthSprite.complete && earthSprite.naturalWidth > 0) {
+                const spriteSize = size * 2;
+                ctx.drawImage(earthSprite, x - spriteSize/2, y - spriteSize/2, spriteSize, spriteSize);
+                return;
+            }
             
             // Fallback rendering
             ctx.fillStyle = COLORS.earthBlue;
@@ -338,8 +350,12 @@
         }
 
         function drawComet(x, y, size) {
-            // PLACEHOLDER: Replace with sprite rendering
-            // if (cometSprite) { ctx.drawImage(cometSprite, x - size, y - size, size * 2, size * 2); return; }
+            // Use sprite if loaded
+            if (cometSprite.complete && cometSprite.naturalWidth > 0) {
+                const spriteSize = size * 2;
+                ctx.drawImage(cometSprite, x - spriteSize/2, y - spriteSize/2, spriteSize, spriteSize);
+                return;
+            }
             
             // Fallback rendering
             ctx.fillStyle = COLORS.cometPurple;
@@ -1186,8 +1202,10 @@
             const controlY = BASE_HEIGHT - 90;
             
             if (gameState === STATE.TITLE) {
-                // Launch button
+                // Launch button - starts music
                 if (pos.y > 365 && pos.y < 435 && pos.x > 47.5 && pos.x < 327.5 && phase === 'start') {
+                    // Start background music
+                    bgMusic.play().catch(e => console.log('Audio play failed:', e));
                     gameState = STATE.FACTION_SELECT;
                 }
             } else if (gameState === STATE.FACTION_SELECT) {
