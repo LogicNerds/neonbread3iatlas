@@ -44,6 +44,25 @@
             background: #000;
         }
 
+        /* Invisible button overlay for music trigger */
+        #launchButton {
+            position: absolute;
+            left: 50%;
+            top: 400px;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 70px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            z-index: 10;
+            display: block;
+        }
+
+        #launchButton.hidden {
+            display: none;
+        }
+
         @media (min-width: 768px) {
             #gameContainer {
                 max-width: 375px;
@@ -55,6 +74,7 @@
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
+        <button id="launchButton" onclick="launchGame()"></button>
     </div>
 
     <script>
@@ -97,6 +117,9 @@
 
         // Function called directly by Launch Your Attack button
         function launchGame() {
+            // Hide the invisible button overlay
+            document.getElementById('launchButton').classList.add('hidden');
+            
             // Create and play background music immediately on user click
             bgMusic = new Audio('https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/joogs-hyperspace-416314.mp3');
             bgMusic.loop = true;
@@ -1279,6 +1302,8 @@
                         bgMusic.pause();
                         bgMusic.currentTime = 0;
                     }
+                    // Show launch button again
+                    document.getElementById('launchButton').classList.remove('hidden');
                     gameState = STATE.TITLE;
                 }
                 // Play More Games link
