@@ -92,10 +92,8 @@
         const gameLogo = new Image();
         gameLogo.src = 'https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/3iatlaslogo.png';
 
-        // Background music
-        const bgMusic = new Audio('https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/joogs-hyperspace-416314.mp3');
-        bgMusic.loop = true;
-        bgMusic.volume = 0.4; // Set to reasonable volume
+        // Background music - will be created on first interaction
+        let bgMusic = null;
 
         // Player projectiles and effects
         let playerProjectiles = [];
@@ -694,10 +692,10 @@
             }
             
             let points = 0;
-            if (dist < 20) {
-                points = 25; // Direct hit
-            } else if (dist < 60) {
-                points = 8; // Indirect blast
+            if (dist < 30) {
+                points = 10; // Direct hit
+            } else if (dist < 50) {
+                points = 5; // Indirect blast
             }
             
             // Flare reduces points by 2
@@ -1219,6 +1217,13 @@
                 if (pos.y > 365 && pos.y < 435 && pos.x > 47.5 && pos.x < 327.5 && phase === 'start') {
                     // Initialize audio context first
                     initAudio();
+                    
+                    // Create bgMusic on first click if it doesn't exist
+                    if (!bgMusic) {
+                        bgMusic = new Audio('https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/joogs-hyperspace-416314.mp3');
+                        bgMusic.loop = true;
+                        bgMusic.volume = 0.4;
+                    }
                     
                     // Always restart background music from beginning
                     bgMusic.currentTime = 0;
