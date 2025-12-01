@@ -88,6 +88,10 @@
         const cometSprite = new Image();
         cometSprite.src = 'https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/3iatlas.png';
 
+        // Game logo
+        const gameLogo = new Image();
+        gameLogo.src = 'https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/3iatlaslogo.png';
+
         // Background music
         const bgMusic = new Audio('https://raw.githubusercontent.com/LogicNerds/neonbread3iatlas/main/assets/joogs-hyperspace-416314.mp3');
         bgMusic.loop = true;
@@ -477,7 +481,15 @@
         function drawTitleScreen() {
             drawStarfield();
             
-            drawPixelText('3i Atlas', BASE_WIDTH/2, 150, 24, COLORS.cometPurple);
+            // Draw logo if loaded, otherwise fallback to text
+            if (gameLogo.complete && gameLogo.naturalWidth > 0) {
+                const logoWidth = 280;
+                const logoHeight = (gameLogo.naturalHeight / gameLogo.naturalWidth) * logoWidth;
+                ctx.drawImage(gameLogo, BASE_WIDTH/2 - logoWidth/2, 100, logoWidth, logoHeight);
+            } else {
+                // Fallback text
+                drawPixelText('3i Atlas', BASE_WIDTH/2, 150, 24, COLORS.cometPurple);
+            }
             
             // Draw small earth and comet
             drawEarth(BASE_WIDTH/2 - 60, 250, 30);
