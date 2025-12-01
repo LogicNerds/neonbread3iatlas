@@ -792,8 +792,8 @@
                 }
                 opponentY = Math.max(100, Math.min(BASE_HEIGHT - 200, opponentY));
                 
-                // Fire laser (very frequently)
-                if (opponentAttackTimer % 45 === 0) {
+                // Fire laser - reduced by 20% (45 -> 56 frames)
+                if (opponentAttackTimer % 56 === 0) {
                     playLaserSound();
                     opponentProjectiles.push({
                         type: 'laser',
@@ -804,8 +804,8 @@
                     });
                 }
                 
-                // Fire plasma blob (more frequently)
-                if (opponentAttackTimer % 85 === 0) {
+                // Fire plasma blob - reduced by 20% (85 -> 106 frames)
+                if (opponentAttackTimer % 106 === 0) {
                     playPlasmaSound();
                     opponentProjectiles.push({
                         type: 'plasma',
@@ -828,10 +828,11 @@
                 const timeProgress = Math.min(timeElapsed / 30, 1); // 0 to 1 over 30 seconds
                 
                 // Fire nuke with escalating aggression based on time elapsed
-                // Starts slow, becomes absolutely brutal by 30 seconds
+                // Starts slow, becomes aggressive by 30 seconds
+                // Reduced by 20% from original
                 
-                // Escalating fire rate: starts at 2% chance, ramps up to 12% by 30 seconds
-                const baseFireRate = 0.02 + (timeProgress * 0.10); // 2% -> 12%
+                // Escalating fire rate: starts at 1.6% chance, ramps up to 9.6% by 30 seconds (was 2% -> 12%)
+                const baseFireRate = 0.016 + (timeProgress * 0.08); // 1.6% -> 9.6%
                 const shouldFireNuke = Math.random() < baseFireRate;
                 
                 if (shouldFireNuke) {
@@ -865,8 +866,8 @@
                 }
                 
                 // Launch flare with escalating frequency
-                // Flare interval: starts every 50 frames, ramps to every 30 frames
-                const flareInterval = Math.floor(50 - (timeProgress * 20)); // 50 -> 30
+                // Flare interval: starts every 60 frames, ramps to every 36 frames (was 50 -> 30, now 20% slower)
+                const flareInterval = Math.floor(60 - (timeProgress * 24)); // 60 -> 36
                 
                 if (opponentAttackTimer % flareInterval === 0) {
                     playFlareSound();
