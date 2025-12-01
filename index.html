@@ -1202,9 +1202,10 @@
             const controlY = BASE_HEIGHT - 90;
             
             if (gameState === STATE.TITLE) {
-                // Launch button - starts music
+                // Launch button - starts/restarts music immediately
                 if (pos.y > 365 && pos.y < 435 && pos.x > 47.5 && pos.x < 327.5 && phase === 'start') {
-                    // Start background music
+                    // Always restart background music from beginning
+                    bgMusic.currentTime = 0;
                     bgMusic.play().catch(e => console.log('Audio play failed:', e));
                     gameState = STATE.FACTION_SELECT;
                 }
