@@ -111,6 +111,134 @@
         let touchStartTime = 0;
         let activeTouch = null;
 
+        // Audio context for chiptune sounds
+        let audioCtx = null;
+
+        // Initialize audio context on first user interaction
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Chiptune sound generators
+        function playLaserSound() {
+            if (!audioCtx) return;
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            // Square wave for retro laser sound
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playPlasmaSound() {
+            if (!audioCtx) return;
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            // Sawtooth wave for plasma
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
+            
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playNukeLaunchSound() {
+            if (!audioCtx) return;
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            // Low rumble building up
+            oscillator.type = 'triangle';
+            oscillator.frequency.setValueAtTime(80, audioCtx.currentTime);
+            oscillator.frequency.linearRampToValueAtTime(120, audioCtx.currentTime + 0.15);
+            
+            gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function playExplosionSound() {
+            if (!audioCtx) return;
+            
+            // Create noise buffer for explosion
+            const bufferSize = audioCtx.sampleRate * 0.3;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            // Generate white noise
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'lowpass';
+            noiseFilter.frequency.setValueAtTime(2000, audioCtx.currentTime);
+            noiseFilter.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+            
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            
+            noise.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            
+            noise.start(audioCtx.currentTime);
+            noise.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playFlareSound() {
+            if (!audioCtx) return;
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            // High-pitched whoosh
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1200, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(2400, audioCtx.currentTime + 0.12);
+            
+            gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+            
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.12);
+        }
+
         // Colors
         const COLORS = {
             earthBlue: '#00BFFF',
@@ -418,6 +546,9 @@
         }
 
         function fireNuke() {
+            initAudio();
+            playNukeLaunchSound();
+            
             const startX = 80;
             const startY = BASE_HEIGHT / 2;
             const targetX = BASE_WIDTH - 80;
@@ -445,6 +576,9 @@
         }
 
         function fireLaser() {
+            initAudio();
+            playLaserSound();
+            
             playerProjectiles.push({
                 type: 'laser',
                 x: 80,
@@ -455,6 +589,9 @@
         }
 
         function fireFlare() {
+            initAudio();
+            playFlareSound();
+            
             // Create multiple flare zones in an arc to the right of Earth
             const earthX = 80;
             const earthY = BASE_HEIGHT / 2;
@@ -479,6 +616,9 @@
         function releasePlasma() {
             if (!playerCharging) return;
             
+            initAudio();
+            playPlasmaSound();
+            
             const chargeRatio = Math.min(playerChargeTime / 30, 1);
             const power = 4 + chargeRatio * 4;
             
@@ -496,6 +636,9 @@
         }
 
         function createExplosion(x, y, radius, color) {
+            initAudio();
+            playExplosionSound();
+            
             explosions.push({
                 x, y, radius, color,
                 timer: 0,
@@ -635,6 +778,7 @@
                 
                 // Fire laser (very frequently)
                 if (opponentAttackTimer % 45 === 0) {
+                    playLaserSound();
                     opponentProjectiles.push({
                         type: 'laser',
                         x: BASE_WIDTH - 80,
@@ -646,6 +790,7 @@
                 
                 // Fire plasma blob (more frequently)
                 if (opponentAttackTimer % 85 === 0) {
+                    playPlasmaSound();
                     opponentProjectiles.push({
                         type: 'plasma',
                         x: BASE_WIDTH - 80,
@@ -674,6 +819,8 @@
                 const shouldFireNuke = Math.random() < baseFireRate;
                 
                 if (shouldFireNuke) {
+                    playNukeLaunchSound();
+                    
                     const startX = BASE_WIDTH - 80;
                     const startY = BASE_HEIGHT / 2;
                     const targetX = 80;
@@ -706,6 +853,8 @@
                 const flareInterval = Math.floor(50 - (timeProgress * 20)); // 50 -> 30
                 
                 if (opponentAttackTimer % flareInterval === 0) {
+                    playFlareSound();
+                    
                     const earthX = BASE_WIDTH - 80;
                     const earthY = BASE_HEIGHT / 2;
                     
