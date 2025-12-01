@@ -1217,6 +1217,9 @@
             if (gameState === STATE.TITLE) {
                 // Launch button - starts/restarts music immediately
                 if (pos.y > 365 && pos.y < 435 && pos.x > 47.5 && pos.x < 327.5 && phase === 'start') {
+                    // Initialize audio context first
+                    initAudio();
+                    
                     // Always restart background music from beginning
                     bgMusic.currentTime = 0;
                     bgMusic.play().catch(e => console.log('Audio play failed:', e));
