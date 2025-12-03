@@ -427,6 +427,26 @@
                 ctx.strokeStyle = '#FF9933';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(proj.x - 6, proj.y - 6, 12, 12);
+            } else if (proj.type === 'missile') {
+                // Missile body (pointed)
+                ctx.fillStyle = '#CCCCCC';
+                ctx.beginPath();
+                ctx.moveTo(proj.x + 12, proj.y); // Tip
+                ctx.lineTo(proj.x - 8, proj.y - 4); // Top back
+                ctx.lineTo(proj.x - 8, proj.y + 4); // Bottom back
+                ctx.closePath();
+                ctx.fill();
+                
+                // Red stripe
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(proj.x - 4, proj.y - 3, 8, 6);
+                
+                // Flame trail
+                const flameOffset = gameTimer % 6;
+                ctx.fillStyle = '#FF6600';
+                ctx.fillRect(proj.x - 12 - flameOffset, proj.y - 3, 6, 6);
+                ctx.fillStyle = '#FFAA00';
+                ctx.fillRect(proj.x - 10 - flameOffset, proj.y - 2, 4, 4);
             } else if (proj.type === 'laser') {
                 ctx.fillStyle = COLORS.laserRed;
                 ctx.fillRect(proj.x - 10, proj.y - 3, 20, 6);
@@ -493,13 +513,11 @@
                 // Nuke button (left)
                 drawButton('NUKE', 80, controlY, 130, 60, COLORS.nukeOrange, '#FF9933');
                 
-                // Detonate button (right) - shows number of nukes ready
-                const detonateText = playerNukes.length > 0 ? `DET (${playerNukes.length})` : 'DET';
-                const detonateColor = playerNukes.length > 0 ? '#FF3388' : '#663344';
-                drawButton(detonateText, BASE_WIDTH - 80, controlY, 130, 60, detonateColor, '#FF6688');
+                // Missile button (right)
+                drawButton('MISSILE', BASE_WIDTH - 80, controlY, 130, 60, COLORS.laserRed, '#FF3388');
                 
                 // Flare instructions
-                drawPixelText('SWIPE UP FOR FLARE', BASE_WIDTH/2, controlY - 40, 8, '#888');
+                drawPixelText('TAP EARTH FOR FLARE', BASE_WIDTH/2, controlY - 40, 8, '#888');
             } else {
                 // Laser button (left)
                 drawButton('LASER', 80, controlY, 130, 60, COLORS.laserRed, '#FF3388');
@@ -630,13 +648,17 @@
             });
         }
 
-        function detonateNuke() {
-            // Detonate oldest nuke (first in array)
-            if (playerNukes.length === 0) return;
+        function fireMissile() {
+            initAudio();
+            playLaserSound();
             
-            const nuke = playerNukes.shift(); // Remove and get first nuke
-            createExplosion(nuke.x, nuke.y, 50, COLORS.nukeOrange);
-            checkNukeDamage(nuke.x, nuke.y);
+            playerProjectiles.push({
+                type: 'missile',
+                x: 80,
+                y: BASE_HEIGHT / 2,
+                vx: 8,
+                vy: 0
+            });
         }
 
         function fireLaser() {
@@ -731,7 +753,7 @@
             
             let points = 0;
             if (dist < 30) {
-                points = 10; // Direct hit
+                points = 20; // Direct hit - increased to 20
             } else if (dist < 50) {
                 points = 5; // Indirect blast
             }
@@ -761,7 +783,7 @@
             
             let points = 0;
             if (dist < 40) {
-                points = 10; // Direct hit - increased from 30
+                points = 20; // Direct hit - increased to 20
             } else if (dist < 70) {
                 points = 5; // Indirect blast - increased from 50
             }
@@ -788,10 +810,10 @@
                 }
             }
             
-            if (proj.type === 'laser') {
+            if (proj.type === 'laser' || proj.type === 'missile') {
                 if (dist < 25) {
                     createExplosion(proj.x, proj.y, 20, COLORS.laserRed);
-                    let points = 3; // Laser hit
+                    let points = 3; // Laser/Missile hit
                     if (inFlare) {
                         points = Math.max(0, points - 2); // Flare reduces by 2
                     }
@@ -832,16 +854,21 @@
             
             if (playerFaction === 'earth') {
                 // Opponent is comet - fires lasers and plasma
+                // Progressive difficulty based on opponent's score
+                const opponentScoreMultiplier = 1 + (opponentScore / 45); // Gets 10% faster per 45 points
+                
                 // More erratic drift up/down
+                const moveSpeed = 1.2 * opponentScoreMultiplier;
                 if (opponentMoveTimer % 60 < 30) {
-                    opponentY += 1.2; // Faster movement
+                    opponentY += moveSpeed;
                 } else {
-                    opponentY -= 1.2;
+                    opponentY -= moveSpeed;
                 }
                 opponentY = Math.max(100, Math.min(BASE_HEIGHT - 200, opponentY));
                 
-                // Fire laser - reduced by 20% (45 -> 56 frames)
-                if (opponentAttackTimer % 56 === 0) {
+                // Fire laser - gets faster with score (base 56 frames, reduced by 20%)
+                const laserInterval = Math.max(20, Math.floor(56 / opponentScoreMultiplier));
+                if (opponentAttackTimer % laserInterval === 0) {
                     playLaserSound();
                     opponentProjectiles.push({
                         type: 'laser',
@@ -852,8 +879,9 @@
                     });
                 }
                 
-                // Fire plasma blob - reduced by 20% (85 -> 106 frames)
-                if (opponentAttackTimer % 106 === 0) {
+                // Fire plasma blob - gets faster with score (base 106 frames, reduced by 20%)
+                const plasmaInterval = Math.max(40, Math.floor(106 / opponentScoreMultiplier));
+                if (opponentAttackTimer % plasmaInterval === 0) {
                     playPlasmaSound();
                     opponentProjectiles.push({
                         type: 'plasma',
@@ -866,22 +894,17 @@
                 }
             } else {
                 // Opponent is earth - fires nukes and flares
-                // Slow drift left/right
-                if (opponentMoveTimer % 180 < 90) {
-                    // Slight movement would be here but Earth stays mostly stationary
-                }
-                
-                // Calculate time progression once for this AI update
+                // Progressive difficulty based on both time AND opponent's score
                 const timeElapsed = gameTimer / 60; // in seconds
                 const timeProgress = Math.min(timeElapsed / 30, 1); // 0 to 1 over 30 seconds
+                const opponentScoreMultiplier = 1 + (opponentScore / 45); // Gets 10% faster per 45 points
+                const totalDifficultyMultiplier = (timeProgress * 0.5 + 0.5) * opponentScoreMultiplier; // Time + score
                 
-                // Fire nuke with escalating aggression based on time elapsed
-                // Starts slow, becomes aggressive by 30 seconds
-                // Reduced by 20% from original
-                
-                // Escalating fire rate: starts at 1.6% chance, ramps up to 9.6% by 30 seconds (was 2% -> 12%)
-                const baseFireRate = 0.016 + (timeProgress * 0.08); // 1.6% -> 9.6%
-                const shouldFireNuke = Math.random() < baseFireRate;
+                // Fire nuke with escalating aggression
+                // Base: 1.6% -> 9.6%, then multiplied by score
+                const baseFireRate = 0.016 + (timeProgress * 0.08);
+                const adjustedFireRate = baseFireRate * totalDifficultyMultiplier;
+                const shouldFireNuke = Math.random() < adjustedFireRate;
                 
                 if (shouldFireNuke) {
                     playNukeLaunchSound();
@@ -895,8 +918,8 @@
                     const distance = Math.abs(targetX - startX);
                     const heightDiff = targetY - startY;
                     
-                    // Less randomness as time goes on - more precise aiming
-                    const aimPrecision = 1 - (timeProgress * 0.6); // 1.0 -> 0.4
+                    // Less randomness as difficulty increases
+                    const aimPrecision = 1 - (totalDifficultyMultiplier * 0.6);
                     const vxVariation = (-0.5 + Math.random() * 1.0) * aimPrecision;
                     const vyVariation = (-0.5 + Math.random() * 1.0) * aimPrecision;
                     
@@ -907,15 +930,14 @@
                         vx: -5.5 + vxVariation,
                         vy: -5 - (heightDiff / 80) + vyVariation,
                         detonateTimer: 70 + Math.floor(Math.random() * 15),
-                        // Store time progress for smarter detonation
-                        smartDetonate: timeProgress > 0.5 // After 15 seconds, use smart detonation
+                        smartDetonate: totalDifficultyMultiplier > 0.8 // Smart mode at high difficulty
                     };
                     opponentProjectiles.push(nuke);
                 }
                 
                 // Launch flare with escalating frequency
-                // Flare interval: starts every 60 frames, ramps to every 36 frames (was 50 -> 30, now 20% slower)
-                const flareInterval = Math.floor(60 - (timeProgress * 24)); // 60 -> 36
+                const baseFlareInterval = 60 - (timeProgress * 24); // 60 -> 36
+                const flareInterval = Math.max(20, Math.floor(baseFlareInterval / opponentScoreMultiplier));
                 
                 if (opponentAttackTimer % flareInterval === 0) {
                     playFlareSound();
@@ -924,7 +946,7 @@
                     const earthY = BASE_HEIGHT / 2;
                     
                     for (let i = 0; i < 3; i++) {
-                        const angle = Math.PI + (Math.PI / 6) * (i - 1); // Mirror for right side
+                        const angle = Math.PI + (Math.PI / 6) * (i - 1);
                         const distance = 60;
                         opponentFlares.push({
                             x: earthX + Math.cos(angle) * distance,
@@ -956,10 +978,20 @@
                 nuke.y += nuke.vy;
                 nuke.vy += 0.3; // gravity
                 
-                // Auto-detonate if off screen
-                if (nuke.x > BASE_WIDTH || nuke.y > BASE_HEIGHT || nuke.x < 0 || nuke.y < 0) {
+                // Check if nuke hits opponent
+                const opX = BASE_WIDTH - 80;
+                const opY = opponentY;
+                const dist = Math.sqrt((nuke.x - opX) ** 2 + (nuke.y - opY) ** 2);
+                
+                if (dist < 50) { // Close enough to detonate
                     createExplosion(nuke.x, nuke.y, 50, COLORS.nukeOrange);
                     checkNukeDamage(nuke.x, nuke.y);
+                    playerNukes.splice(i, 1);
+                    continue;
+                }
+                
+                // Auto-detonate if off screen
+                if (nuke.x > BASE_WIDTH || nuke.y > BASE_HEIGHT || nuke.x < 0 || nuke.y < 0) {
                     playerNukes.splice(i, 1);
                 }
             }
@@ -1212,22 +1244,13 @@
 
         function handleTouchMove(e) {
             e.preventDefault();
-            if (gameState === STATE.PLAYING) {
+            if (gameState === STATE.PLAYING && playerFaction === 'comet') {
                 const pos = getTouchPos(e);
-                const deltaY = touchStartY - pos.y; // Positive means swipe up
                 
-                if (playerFaction === 'comet') {
-                    // Comet swipe movement
-                    playerY += (pos.y - touchStartY) * 0.3;
-                    playerY = Math.max(100, Math.min(BASE_HEIGHT - 200, playerY));
-                    touchStartY = pos.y;
-                } else if (playerFaction === 'earth') {
-                    // Earth swipe up for flare
-                    if (deltaY > 50) { // Swipe up threshold
-                        fireFlare();
-                        touchStartY = pos.y; // Reset to prevent multiple fires
-                    }
-                }
+                // Comet swipe movement
+                playerY += (pos.y - touchStartY) * 0.3;
+                playerY = Math.max(100, Math.min(BASE_HEIGHT - 200, playerY));
+                touchStartY = pos.y;
             }
         }
 
@@ -1266,16 +1289,25 @@
                 }
             } else if (gameState === STATE.PLAYING) {
                 if (playerFaction === 'earth') {
+                    // Check if tapping Earth sprite for flare
+                    const earthX = 80;
+                    const earthY = BASE_HEIGHT / 2;
+                    const distToEarth = Math.sqrt((pos.x - earthX) ** 2 + (pos.y - earthY) ** 2);
+                    
+                    if (distToEarth < 50 && phase === 'start') {
+                        fireFlare();
+                    }
+                    
                     // Nuke button (left)
                     if (pos.x < 145 && pos.y > controlY - 30 && pos.y < controlY + 30) {
                         if (phase === 'start') {
                             fireNuke();
                         }
                     }
-                    // Detonate button (right)
+                    // Missile button (right)
                     if (pos.x > 230 && pos.y > controlY - 30 && pos.y < controlY + 30) {
                         if (phase === 'start') {
-                            detonateNuke();
+                            fireMissile();
                         }
                     }
                 } else {
