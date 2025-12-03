@@ -899,7 +899,7 @@
                 
                 // Fire nuke with escalating aggression based on score
                 // Base fire rate that scales with score
-                const baseFireRate = 0.03; // 3% chance per frame base rate
+                const baseFireRate = 0.015; // 1.5% chance per frame base rate
                 const adjustedFireRate = baseFireRate * opponentScoreMultiplier;
                 const shouldFireNuke = Math.random() < adjustedFireRate;
                 
@@ -927,7 +927,8 @@
                         vx: -5.5 + vxVariation,
                         vy: -5 - (heightDiff / 80) + vyVariation,
                         detonateTimer: 70 + Math.floor(Math.random() * 15),
-                        smartDetonate: opponentScoreMultiplier > 2 // Smart mode at 2x difficulty (90+ points)
+                        smartDetonate: opponentScoreMultiplier > 2, // Smart mode at 2x difficulty (90+ points)
+                        tracking: true // Enable tracking for opponent nukes
                     };
                     opponentProjectiles.push(nuke);
                 }
@@ -1034,6 +1035,13 @@
                 // Nukes also have gravity
                 if (proj.type === 'nuke') {
                     proj.vy += 0.3; // Apply gravity to nukes
+                    
+                    // Tracking for opponent nukes - slight adjustment toward 3i Atlas with lag
+                    if (proj.tracking && playerFaction === 'comet') {
+                        const targetDiff = playerY - proj.y;
+                        const adjustment = targetDiff * 0.008; // Very slight tracking (0.8% correction per frame)
+                        proj.vy += adjustment;
+                    }
                     
                     // Opponent Earth detonates nukes when close to player (only when player is Comet)
                     if (playerFaction === 'comet') {
