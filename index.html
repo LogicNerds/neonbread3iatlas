@@ -855,7 +855,9 @@
             if (playerFaction === 'earth') {
                 // Opponent is comet - fires lasers and plasma
                 // Progressive difficulty based on opponent's score
-                const opponentScoreMultiplier = 1 + (opponentScore / 45); // Gets 10% faster per 45 points
+                // Cap at 3x max difficulty to prevent insane scaling
+                const rawMultiplier = 1 + (opponentScore / 200); // Gets 10% faster per 200 points (was 45)
+                const opponentScoreMultiplier = Math.min(rawMultiplier, 3); // Cap at 3x speed
                 
                 // More erratic drift up/down
                 const moveSpeed = 1.2 * opponentScoreMultiplier;
@@ -895,7 +897,9 @@
             } else {
                 // Opponent is earth - fires nukes and flares
                 // Progressive difficulty based on opponent's score (matching Comet behavior)
-                const opponentScoreMultiplier = 1 + (opponentScore / 45); // Gets 10% faster per 45 points
+                // Cap at 3x max difficulty to prevent insane scaling
+                const rawMultiplier = 1 + (opponentScore / 200); // Gets 10% faster per 200 points (was 45)
+                const opponentScoreMultiplier = Math.min(rawMultiplier, 3); // Cap at 3x speed
                 
                 // Fire nuke with escalating aggression based on score
                 // Base fire rate that scales with score
@@ -1039,7 +1043,7 @@
                     // Tracking for opponent nukes - slight adjustment toward 3i Atlas with lag
                     if (proj.tracking && playerFaction === 'comet') {
                         const targetDiff = playerY - proj.y;
-                        const adjustment = targetDiff * 0.008; // Very slight tracking (0.8% correction per frame)
+                        const adjustment = targetDiff * 0.03; // Stronger tracking (3% correction per frame)
                         proj.vy += adjustment;
                     }
                     
