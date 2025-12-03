@@ -894,16 +894,13 @@
                 }
             } else {
                 // Opponent is earth - fires nukes and flares
-                // Progressive difficulty based on both time AND opponent's score
-                const timeElapsed = gameTimer / 60; // in seconds
-                const timeProgress = Math.min(timeElapsed / 30, 1); // 0 to 1 over 30 seconds
+                // Progressive difficulty based on opponent's score (matching Comet behavior)
                 const opponentScoreMultiplier = 1 + (opponentScore / 45); // Gets 10% faster per 45 points
-                const totalDifficultyMultiplier = (timeProgress * 0.5 + 0.5) * opponentScoreMultiplier; // Time + score
                 
-                // Fire nuke with escalating aggression
-                // Base: 1.6% -> 9.6%, then multiplied by score
-                const baseFireRate = 0.016 + (timeProgress * 0.08);
-                const adjustedFireRate = baseFireRate * totalDifficultyMultiplier;
+                // Fire nuke with escalating aggression based on score
+                // Base fire rate that scales with score
+                const baseFireRate = 0.03; // 3% chance per frame base rate
+                const adjustedFireRate = baseFireRate * opponentScoreMultiplier;
                 const shouldFireNuke = Math.random() < adjustedFireRate;
                 
                 if (shouldFireNuke) {
@@ -919,7 +916,7 @@
                     const heightDiff = targetY - startY;
                     
                     // Less randomness as difficulty increases
-                    const aimPrecision = 1 - (totalDifficultyMultiplier * 0.6);
+                    const aimPrecision = Math.max(0.4, 1 - (opponentScoreMultiplier * 0.3));
                     const vxVariation = (-0.5 + Math.random() * 1.0) * aimPrecision;
                     const vyVariation = (-0.5 + Math.random() * 1.0) * aimPrecision;
                     
@@ -930,14 +927,13 @@
                         vx: -5.5 + vxVariation,
                         vy: -5 - (heightDiff / 80) + vyVariation,
                         detonateTimer: 70 + Math.floor(Math.random() * 15),
-                        smartDetonate: totalDifficultyMultiplier > 0.8 // Smart mode at high difficulty
+                        smartDetonate: opponentScoreMultiplier > 2 // Smart mode at 2x difficulty (90+ points)
                     };
                     opponentProjectiles.push(nuke);
                 }
                 
                 // Launch flare with escalating frequency
-                const baseFlareInterval = 60 - (timeProgress * 24); // 60 -> 36
-                const flareInterval = Math.max(20, Math.floor(baseFlareInterval / opponentScoreMultiplier));
+                const flareInterval = Math.max(20, Math.floor(60 / opponentScoreMultiplier));
                 
                 if (opponentAttackTimer % flareInterval === 0) {
                     playFlareSound();
